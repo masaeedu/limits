@@ -7,6 +7,7 @@ import Data.Singleton
 import Data.Maybe
 import Data.Profunctor
 import Data.Sift
+import Data.Diagram
 
 import GHC.TypeLits (KnownSymbol, sameSymbol)
 
@@ -35,11 +36,6 @@ convert = build project
 
 -- {{{ Test out tuples and eithers
 
-data Two a b (i :: Bool)
-  where
-  Fst :: a -> Two a b 'False
-  Snd :: b -> Two a b 'True
-
 instance Limit (->) SBool (Two a b) (a, b)
   where
   project SF (a, _) = Fst a
@@ -64,18 +60,6 @@ instance Limit Op SBool (Two a b) (a + b)
 -- }}}
 
 -- {{{ Diagram functor for string-indexed products
-
-type Row k v = [(k, v)]
-
-type family (r :: Row i k) :! (s :: i) = (c :: Maybe k)
-  where
-  '[]            :! _ = 'Nothing
-  ('(s, v) ': _) :! s = 'Just v
-  (_       ': r) :! s = r :! s
-
-data RowSel (r :: [(k, *)]) (i :: k)
-  where
-  Choose :: r :! i ~ 'Just v => v -> RowSel r i
 
 unChoose :: r :! i ~ 'Just v => RowSel r i -> v
 unChoose (Choose x) = x
@@ -137,7 +121,6 @@ test5 = convert
 data Bar = B1 Int | B2 String
 type BarRep = ['("B1", Int), '("B2", String)]
 
-
 instance Limit Op SSymbol (RowSel BarRep) Bar
   where
   project (SSymbol p) = Op $ case (fromJust $ v1 <|> v2) of
@@ -164,16 +147,6 @@ type Lens s t a b = forall p. Strong p => p a b -> p s t
 
 lens :: (s -> a) -> (s -> b -> t) -> Lens s t a b
 lens v u = dimap (\s -> (v s, s)) (uncurry $ flip u) . first'
-
-instance Sift 'False (Two a b) (Two c b)
-  where
-  sift (Fst _) = Left Refl
-  sift (Snd x) = Right $ Snd x
-
-instance Sift 'True (Two a b) (Two a c)
-  where
-  sift (Fst x) = Right $ Fst x
-  sift (Snd _) = Left Refl
 
 {-
 some exposition to help write @at@
